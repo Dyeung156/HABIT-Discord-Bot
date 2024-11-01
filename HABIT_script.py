@@ -98,6 +98,9 @@ async def saveCmd(interaction : discord.Integration, cmd_name : str, text_output
 @client.tree.command(name = "get_cmd", description = "Retrieves a text command for the user and outputs it", guild = GUILD_NUM)
 async def saveCmd(interaction : discord.Integration, cmd_name : str):
     phrase = await get_user_command(interaction.user.id, cmd_name)
+    
+    if phrase == None:
+        phrase = f"Command {cmd_name} not found"
     await interaction.response.send_message(phrase)
 
 #TODO 
