@@ -1,0 +1,2 @@
+If you want to dynamically load files instead of manually importing them, you can use os.listdir in bot.py to register commands and events.
+
