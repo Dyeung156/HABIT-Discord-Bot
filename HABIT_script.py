@@ -10,8 +10,6 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import discord
 from discord.ext import commands
 
-import asyncio
-
 #get the token from env file
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -30,34 +28,54 @@ print("Connected to MongoDB!")
 #            command_name (str) - name of the command 
 #            command_data (str) - text that the command would output 
 #No output
-async def save_user_command(user_id, command_name, command_data):
-    user_commands_collection.update_one(
-        {"user_id": user_id},
-        {"$set": {command_name: command_data}},
-        upsert=True
-    )
-    print(f"Command '{command_name}' saved for user {user_id}.")
+async def save_user_command(user_id, command_name, command_output):
+    # filter by user id
+    filter = {"user_id": user_id}  
+    
+    # Define the update operation
+    update = {"$set": {f"commands.{command_name}": command_output}  }
+    
+    # Update the document
+    user_commands_collection.update_one(filter, update, upsert=True)  # upsert=True will create the document if it doesn't exist
 
 #retrieves a command from a user's personal collection
 #parameters: user_id (int) -the user's Discord ID
 #            command_name (str) - name of the command 
 #returns: the text associated with the command 
 async def get_user_command(user_id, command_name):
+    #get the document for the user's collection
     user_data = await user_commands_collection.find_one({"user_id": user_id})
-    if user_data:
-        return user_data.get(command_name)
+    # Check if user data exists and the command exists in the 'commands' dictionary
+    if user_data and command_name in user_data.get("commands", {}):
+        return user_data["commands"][command_name]
     else:
-        return None
+        return None  # Return None if the command doesn't exist or the user is not found
 
 #get all commands from a user's personal collection
+#parameters: user_id (int) - the user's Discord ID
+#returns: a list of all command names with that user ID
 async def get_all_user_commands(user_id):
     user_data = await user_commands_collection.find_one({"user_id": user_id})  
+    
     if user_data:
-        # Remove 'user_id' key to return only the commands in a dict format
-        return {key for key, value in user_data.items() if key != "user_id" and key != "_id"}
+        return [key for key in user_data["commands"]]
     else:
-        return None
+        return []
 
+#delete a command from a user's persoanl collection
+async def delete_command(user_id, command_name):
+    # Define the filter to find the user by user_id
+    filter = {"user_id": user_id}
+    
+    # Define the update operation to remove the specific command from the 'commands' dictionary
+    update = {"$unset": {f"commands.{command_name}": ""}}
+    
+    # Update the document to remove the command
+    result = await user_commands_collection.update_one(filter, update)
+    
+    # if modified_count > 0, then something was deleted
+    return result.modified_count > 0
+    
 #set up intents
 intents = discord.Intents.default()
 intents.message_content = True
@@ -92,7 +110,6 @@ class MainMenu(discord.ui.View):
             await interaction.response.edit_message(content = "", view = CmdMenu(cmd_selections)) 
         elif action == "save_cmd":
             await interaction.response.send_modal(ModalForCmd())
-
 
 class ModalForCmd(discord.ui.Modal):
     def __init__(self):
@@ -184,10 +201,6 @@ async def on_ready():
     
     print(f'{client.user} has connected to Discord!')
 
-@client.tree.command(name = "repeat", description = "Replys with Hello There", guild = GUILD_NUM)
-async def repeatPhrase(interaction : discord.Interaction, print_out : str):
-    await interaction.response.send_message(print_out)
-
 @client.tree.command(name = "save_cmd", description = "Saves a text command for the user", guild = GUILD_NUM)
 async def saveCmd(interaction : discord.Interaction, cmd_name : str, text_output : str):
     await save_user_command(interaction.user.id, cmd_name, text_output)
@@ -199,7 +212,7 @@ async def getCmd(interaction : discord.Interaction, cmd_name : str):
         phrase = await get_user_command(interaction.user.id, cmd_name)
         if phrase is None:
             phrase = f"Command {cmd_name} not found"
-        await interaction.response.send_message(phrase)
+        await interaction.response.send_message(phrase, ephemeral = True)
         
     except discord.errors.InteractionResponded:
         # Prevent additional response attempts if already responded
@@ -213,5 +226,10 @@ async def getAllCmd(interaction : discord.Interaction):
         phrase = f"Commands not found"
 
     await interaction.response.send_message(phrase)
+
+@client.tree.command(name = "delete_cmd", description = "Deletes a command for the user", guild = GUILD_NUM)
+async def deleteACmd(interaction: discord.Interaction, cmd_name : str):
+    result = await delete_command(interaction.user.id, cmd_name)
+    await interaction.response.send_message(f"Command {cmd_name} deleted: {result}", ephemeral = True)
 
 client.run(TOKEN)
