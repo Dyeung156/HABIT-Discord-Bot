@@ -43,8 +43,7 @@ async def save_user_command(user_id, command_name, command_data):
 #            command_name (str) - name of the command 
 #returns: the text associated with the command 
 async def get_user_command(user_id, command_name):
-    user_data = user_commands_collection.find_one({"user_id": user_id})
-    
+    user_data = await user_commands_collection.find_one({"user_id": user_id})
     if user_data:
         return user_data.get(command_name)
     else:
@@ -55,7 +54,7 @@ async def get_all_user_commands(user_id):
     user_data = await user_commands_collection.find_one({"user_id": user_id})  
     if user_data:
         # Remove 'user_id' key to return only the commands in a dict format
-        return {key: value for key, value in user_data.items() if key != "user_id" and key != "_id"}
+        return {key for key, value in user_data.items() if key != "user_id" and key != "_id"}
     else:
         return None
 
@@ -111,53 +110,45 @@ class MainMenu(discord.ui.View):
     async def button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_message("You clicked the button!") # Send a message when the button is clicked
 
-class CmdMenu(discord.ui.Select):
-    select_options = []
-    
-    #init the menu with a dict of the user's commands 
-    def __init__(self, cmd_selections : dict):
-        self.select_options = [
-            discord.SelectOption(label=label, value=value)
-            for label, value in cmd_selections.items()
+class CmdMenu(discord.ui.View):
+    #init the menu with a list of the user's commands 
+    def __init__(self, cmd_selections):
+        super().__init__()
+        
+        select_options = [
+            discord.SelectOption(label=label, value=label)
+            for label in cmd_selections
         ]
         
-        # Pass options to the Select component
-        super().__init__(placeholder="Choose an option", options = self.select_options)
+        select = discord.ui.Select(
+            placeholder="Choose an action",
+            min_values=1,
+            max_values=1,
+            options=select_options
+        )
+        select.callback = self.cmd_menu_callback
+        self.add_item(select)
     
-    @discord.ui.select(placeholder = "Choose an action", min_values = 1, max_values = 1, options = select_options)
-    async def cmd_menu_callback(self, interaction : discord.Interaction, select : discord.ui.select):
-        action = select.values[0]
-        await interaction.response.send_message(f"Executing {action}", ephemeral = True)
-        
-        def check(message):
-            return message.author == interaction.user and message.channel == interaction.channel
+    async def cmd_menu_callback(self, interaction : discord.Interaction):
+        action = interaction.data["values"][0]
 
-        try:
-            message = await interaction.client.wait_for("message", timeout=30.0, check=check)
-            if action in self.select_options:
-                await saveCmd.callback(interaction, input_text=message.content)
-
-        except asyncio.TimeoutError:
-            await interaction.followup.send("You didn't provide input in time. Try again!")
+        # await interaction.response.send_message(f"Executing {action}", ephemeral = True)
         
-class SelectMenuView(discord.ui.View):
-    def __init__(self, options_dict):
-        super().__init__()
-        # Pass the dictionary directly to CustomSelectMenu
-        self.add_item(CmdMenu(options_dict))
+        # Handle the action, e.g., execute a specific command
+        if await getCmd.callback(interaction, action):
+            print(f"Executed {action}")
+        else:
+            print(f"Failed to execute {action}")
 
 @client.tree.command(name = "main_menu", description = "Calls the main menu", guild = GUILD_NUM)
-async def button(interaction: discord.Interaction):
+async def send_main_menu(interaction: discord.Interaction):
     await interaction.response.send_message("", view = MainMenu())  # Send a message with the View
 
 @client.tree.command(name = "cmd_menu", description = "Calls the menu for user commands", guild = GUILD_NUM)
-async def button(interaction: discord.Interaction):
+async def send_cmd_menu(interaction: discord.Interaction):
     cmd_selections = await get_all_user_commands(interaction.user.id)
     
-    # Create a view and add the select menu to it
-    view = SelectMenuView(cmd_selections)
-    
-    await interaction.response.send_message("", view = view)  # Send a message with the View
+    await interaction.response.send_message("", view = CmdMenu(cmd_selections))  # Send a message with the View
 
 @client.event
 async def on_ready():
@@ -170,10 +161,6 @@ async def on_ready():
     
     print(f'{client.user} has connected to Discord!')
 
-@client.tree.command(name = "hello_there", description = "Replys with Hello There", guild = GUILD_NUM)
-async def sayHello(interaction : discord.Interaction):
-    await interaction.response.send_message("Hello There")
-
 @client.tree.command(name = "repeat", description = "Replys with Hello There", guild = GUILD_NUM)
 async def repeatPhrase(interaction : discord.Interaction, print_out : str):
     await interaction.response.send_message(print_out)
@@ -185,14 +172,18 @@ async def saveCmd(interaction : discord.Interaction, cmd_name : str, text_output
 
 @client.tree.command(name = "get_cmd", description = "Retrieves a text command for the user and outputs it", guild = GUILD_NUM)
 async def getCmd(interaction : discord.Interaction, cmd_name : str):
-    phrase = await get_user_command(interaction.user.id, cmd_name)
-    
-    if phrase == None:
-        phrase = f"Command {cmd_name} not found"
-    await interaction.response.send_message(phrase)
-
+    try:
+        phrase = await get_user_command(interaction.user.id, cmd_name)
+        if phrase is None:
+            phrase = f"Command {cmd_name} not found"
+        await interaction.response.send_message(phrase)
+        
+    except discord.errors.InteractionResponded:
+        # Prevent additional response attempts if already responded
+        print("Interaction has already been responded to.")
+        
 @client.tree.command(name = "get_all_cmd", description = "Retrieves all commands for the user and outputs it", guild = GUILD_NUM)
-async def getCmd(interaction : discord.Interaction):
+async def getAllCmd(interaction : discord.Interaction):
     phrase = await get_all_user_commands(interaction.user.id)
     
     if phrase == None:
