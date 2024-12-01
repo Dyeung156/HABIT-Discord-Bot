@@ -1,7 +1,0 @@
-Priorty:
--fix cmd_menu to actually do the command 
-
-
-Later: 
-If you want to dynamically load files instead of manually importing them, you can use os.listdir in bot.py to register commands and events.
-
