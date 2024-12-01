@@ -90,27 +90,37 @@ class MainMenu(discord.ui.View):
         if action == "get_cmd":
             cmd_selections = await get_all_user_commands(interaction.user.id)
             await interaction.response.edit_message(content = "", view = CmdMenu(cmd_selections)) 
-        # def check(message):
-        #     return message.author == interaction.user and message.channel == interaction.channel
+        elif action == "save_cmd":
+            await interaction.response.send_modal(ModalForCmd())
 
-        # try:
-        #     message = await interaction.client.wait_for("message", timeout=30.0, check=check)
-        #     if action == "save_cmd":
-        #         # Programmatically call the `command1` slash command
-        #         await saveCmd.callback(interaction, input_text=message.content)
-        #     elif action == "get_cmd":
-        #         # Programmatically call the `command2` slash command
-        #         await getCmd.callback(interaction, input_text=message.content)
-        # except asyncio.TimeoutError:
-        #     await interaction.followup.send("You didn't provide input in time. Try again!") 
 
-class NewCmdMenu(discord.ui.View):
-    
-    
-    @discord.ui.button(label="", row = 1, style=discord.ButtonStyle.primary, emoji="⬅️") 
-    async def return_to_main(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.edit_message(content = "", view = MainMenu()) 
-      
+class ModalForCmd(discord.ui.Modal):
+    def __init__(self):
+        super().__init__(title = "Form to Save a Command")
+        
+        # Add the form for the command name 
+        self.cmd_name_form = discord.ui.TextInput(
+            label = "Command Name",
+            placeholder = "Enter a name for the command",
+            required = True
+        )
+        self.add_item(self.cmd_name_form)
+
+        # Add the form for the command output 
+        self.cmd_output_form = discord.ui.TextInput(
+            label = "Command Output",
+            placeholder = "Enter output for the command",
+            required = True
+        )
+        self.add_item(self.cmd_output_form)
+        
+    async def on_submit(self, interaction: discord.Interaction):
+        cmd_name = self.cmd_name_form.value
+        cmd_output = self.cmd_output_form.value
+        
+        await save_user_command(interaction.user.id, cmd_name, cmd_output)
+        await interaction.response.send_message(f"Command {cmd_name} saved", ephemeral = True)
+        
 class CmdMenu(discord.ui.View):
     #init the menu with a set of the user's commands 
     def __init__(self, cmd_selections):
