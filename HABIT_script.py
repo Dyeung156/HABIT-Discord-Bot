@@ -99,6 +99,11 @@ class MainMenu(discord.ui.View):
                 description="Retrieve a personal command and have HABIT send in chat",
                 value = "get_cmd"
             ),
+            discord.SelectOption(
+                label="Delete Command",
+                description="Delete a personal command",
+                value = "delete_cmd"
+            ),
         ]
     )
     async def select_callback(self, interaction : discord.Interaction, select : discord.ui.select):
@@ -107,9 +112,13 @@ class MainMenu(discord.ui.View):
         
         if action == "get_cmd":
             cmd_selections = await get_all_user_commands(interaction.user.id)
-            await interaction.response.edit_message(content = "", view = CmdMenu(cmd_selections)) 
+            await interaction.response.edit_message(content = "", view = CmdMenu(cmd_selections, "get")) 
         elif action == "save_cmd":
             await interaction.response.send_modal(ModalForCmd())
+        elif action == "delete_cmd":
+            cmd_selections = await get_all_user_commands(interaction.user.id)
+            await interaction.response.edit_message(content = "", view = CmdMenu(cmd_selections, "delete")) 
+        
 
 class ModalForCmd(discord.ui.Modal):
     def __init__(self):
@@ -140,7 +149,7 @@ class ModalForCmd(discord.ui.Modal):
         
 class CmdMenu(discord.ui.View):
     #init the menu with a set of the user's commands 
-    def __init__(self, cmd_selections):
+    def __init__(self, cmd_selections, usage):
         super().__init__()
         
         select_options = [
@@ -154,31 +163,46 @@ class CmdMenu(discord.ui.View):
             max_values=1,
             options=select_options
         )
-        select.callback = self.cmd_menu_callback
+        
+        if usage == "get":
+            select.callback = cmd_menu_callback
+        else:
+            select.callback = delete_menu_callback
+            
         self.add_item(select)
-    
-    async def cmd_menu_callback(self, interaction : discord.Interaction):
-        action = interaction.data["values"][0]
-
-        # await interaction.response.send_message(f"Executing {action}", ephemeral = True)
-        
-        # Handle the action, e.g., execute a specific command
-        phrase = await get_user_command(interaction.user.id, action)
-        if phrase is None:
-            phrase = f"Command {action} not found"
-        await interaction.response.send_message(phrase)
-        
-        #using the slash command's callback will get 2 responses to the same interaction
-        #will need to see if this can be fixed. Copy-pasting otherwise for now
-        
-        # if await getCmd.callback(interaction, action):
-        #     print(f"Executed {action}")
-        # else:
-        #     print(f"Failed to execute {action}")
         
     @discord.ui.button(label="", row = 1, style=discord.ButtonStyle.primary, emoji="⬅️") 
     async def return_to_main(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(content = "", view = MainMenu()) 
+
+async def cmd_menu_callback(interaction : discord.Interaction):
+    action = interaction.data["values"][0]
+
+    # await interaction.response.send_message(f"Executing {action}", ephemeral = True)
+    
+    # Handle the action, e.g., execute a specific command
+    phrase = await get_user_command(interaction.user.id, action)
+    if phrase is None:
+        phrase = f"Command {action} not found"
+    await interaction.response.send_message(phrase)
+    
+    #using the slash command's callback will get 2 responses to the same interaction
+    #will need to see if this can be fixed. Copy-pasting otherwise for now
+    
+    # if await getCmd.callback(interaction, action):
+    #     print(f"Executed {action}")
+    # else:
+    #     print(f"Failed to execute {action}")
+
+async def delete_menu_callback(interaction : discord.Interaction):
+    cmd_name = interaction.data["values"][0]
+
+    # await interaction.response.send_message(f"Executing {action}", ephemeral = True)
+    
+    # delete the command and record the result
+    result = await delete_command(interaction.user.id, cmd_name)
+    #send feedback to the user
+    await interaction.response.send_message(f"Command {cmd_name} deleted: {result}", ephemeral = True)
 
 @client.tree.command(name = "main_menu", description = "Calls the main menu", guild = GUILD_NUM)
 async def send_main_menu(interaction: discord.Interaction):
@@ -188,7 +212,13 @@ async def send_main_menu(interaction: discord.Interaction):
 async def send_cmd_menu(interaction: discord.Interaction):
     cmd_selections = await get_all_user_commands(interaction.user.id)
     
-    await interaction.response.send_message("", view = CmdMenu(cmd_selections))  # Send a message with the View
+    await interaction.response.send_message("", view = CmdMenu(cmd_selections, "get"))  # Send a message with the View
+
+@client.tree.command(name = "delete_menu", description = "Calls the menu to delete a command", guild = GUILD_NUM)
+async def send_cmd_menu(interaction: discord.Interaction):
+    cmd_selections = await get_all_user_commands(interaction.user.id)
+    
+    await interaction.response.send_message("", view = CmdMenu(cmd_selections, "delete"))  # Send a message with the View
 
 @client.event
 async def on_ready():
