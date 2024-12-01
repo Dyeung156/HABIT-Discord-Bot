@@ -73,45 +73,46 @@ class MainMenu(discord.ui.View):
         options = [ # the list of options from which users can choose, a required field
             discord.SelectOption(
                 label="Save Command",
-                description="Pick this if you like vanilla!", 
+                description="Create a personal command and upload it", 
                 value = "save_cmd"
             ),
             discord.SelectOption(
                 label="Get Command",
-                description="Pick this if you like chocolate!",
+                description="Retrieve a personal command and have HABIT send in chat",
                 value = "get_cmd"
             ),
         ]
     )
     async def select_callback(self, interaction : discord.Interaction, select : discord.ui.select):
         action = select.values[0]
-        await interaction.response.send_message(f"Executing {action}", ephemeral = True)
+        # await interaction.response.send_message(f"Executing {action}", ephemeral = True)
         
-        def check(message):
-            return message.author == interaction.user and message.channel == interaction.channel
+        if action == "get_cmd":
+            cmd_selections = await get_all_user_commands(interaction.user.id)
+            await interaction.response.edit_message(content = "", view = CmdMenu(cmd_selections)) 
+        # def check(message):
+        #     return message.author == interaction.user and message.channel == interaction.channel
 
-        try:
-            message = await interaction.client.wait_for("message", timeout=30.0, check=check)
-            if action == "save_cmd":
-                # Programmatically call the `command1` slash command
-                await saveCmd.callback(interaction, input_text=message.content)
-            elif action == "get_cmd":
-                # Programmatically call the `command2` slash command
-                await getCmd.callback(interaction, input_text=message.content)
-        except asyncio.TimeoutError:
-            await interaction.followup.send("You didn't provide input in time. Try again!")
- 
-        
+        # try:
+        #     message = await interaction.client.wait_for("message", timeout=30.0, check=check)
+        #     if action == "save_cmd":
+        #         # Programmatically call the `command1` slash command
+        #         await saveCmd.callback(interaction, input_text=message.content)
+        #     elif action == "get_cmd":
+        #         # Programmatically call the `command2` slash command
+        #         await getCmd.callback(interaction, input_text=message.content)
+        # except asyncio.TimeoutError:
+        #     await interaction.followup.send("You didn't provide input in time. Try again!") 
+
+class NewCmdMenu(discord.ui.View):
+    
+    
     @discord.ui.button(label="", row = 1, style=discord.ButtonStyle.primary, emoji="⬅️") 
-    async def button_call(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("You clicked the button!") 
-        
-    @discord.ui.button(label="", row = 1, style=discord.ButtonStyle.primary, emoji="➡️") 
-    async def button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("You clicked the button!") # Send a message when the button is clicked
-
+    async def return_to_main(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.edit_message(content = "", view = MainMenu()) 
+      
 class CmdMenu(discord.ui.View):
-    #init the menu with a list of the user's commands 
+    #init the menu with a set of the user's commands 
     def __init__(self, cmd_selections):
         super().__init__()
         
@@ -135,10 +136,22 @@ class CmdMenu(discord.ui.View):
         # await interaction.response.send_message(f"Executing {action}", ephemeral = True)
         
         # Handle the action, e.g., execute a specific command
-        if await getCmd.callback(interaction, action):
-            print(f"Executed {action}")
-        else:
-            print(f"Failed to execute {action}")
+        phrase = await get_user_command(interaction.user.id, action)
+        if phrase is None:
+            phrase = f"Command {action} not found"
+        await interaction.response.send_message(phrase)
+        
+        #using the slash command's callback will get 2 responses to the same interaction
+        #will need to see if this can be fixed. Copy-pasting otherwise for now
+        
+        # if await getCmd.callback(interaction, action):
+        #     print(f"Executed {action}")
+        # else:
+        #     print(f"Failed to execute {action}")
+        
+    @discord.ui.button(label="", row = 1, style=discord.ButtonStyle.primary, emoji="⬅️") 
+    async def return_to_main(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.edit_message(content = "", view = MainMenu()) 
 
 @client.tree.command(name = "main_menu", description = "Calls the main menu", guild = GUILD_NUM)
 async def send_main_menu(interaction: discord.Interaction):
