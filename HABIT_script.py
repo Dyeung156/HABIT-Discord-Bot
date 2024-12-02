@@ -84,11 +84,11 @@ client = commands.Bot(command_prefix="#", intents=intents)
 GUILD_NUM = discord.Object(id = GUILD_ID)
 
 class MainMenu(discord.ui.View): 
-    @discord.ui.select( # the decorator that lets you specify the properties of the select menu
-        placeholder = "Choose an action", # the placeholder text that will be displayed if nothing is selected
-        min_values = 1, # the minimum number of values that must be selected by the users
-        max_values = 1, # the maximum number of values that can be selected by the users
-        options = [ # the list of options from which users can choose, a required field
+    @discord.ui.select( 
+        placeholder = "Main Menu Action", 
+        min_values = 1, 
+        max_values = 1, 
+        options = [ 
             discord.SelectOption(
                 label="Save Command",
                 description="Create a personal command and upload it", 
@@ -119,7 +119,6 @@ class MainMenu(discord.ui.View):
             cmd_selections = await get_all_user_commands(interaction.user.id)
             await interaction.response.edit_message(content = "", view = CmdMenu(cmd_selections, "delete")) 
         
-
 class ModalForCmd(discord.ui.Modal):
     def __init__(self):
         super().__init__(title = "Form to Save a Command")
@@ -152,21 +151,28 @@ class CmdMenu(discord.ui.View):
     def __init__(self, cmd_selections, usage):
         super().__init__()
         
-        select_options = [
-            discord.SelectOption(label=label, value=label)
-            for label in cmd_selections
-        ]
+        #check if any commands are in the list first
+        if len(cmd_selections) == 0:
+            select_options = [discord.SelectOption(label = "No commands found", value = "No cmds")]
+        else:
+            select_options = [
+                discord.SelectOption(label=label, value=label)
+                for label in cmd_selections
+            ]
         
         select = discord.ui.Select(
-            placeholder="Choose an action",
+            placeholder = "Command Menu" if usage == "get" else "Delete Command",
             min_values=1,
             max_values=1,
             options=select_options
         )
         
-        if usage == "get":
+        #attach proper callback
+        if len(cmd_selections) == 0:
+            select.callback = error_message
+        elif usage == "get":
             select.callback = cmd_menu_callback
-        else:
+        elif usage == "delete":
             select.callback = delete_menu_callback
             
         self.add_item(select)
@@ -174,6 +180,9 @@ class CmdMenu(discord.ui.View):
     @discord.ui.button(label="", row = 1, style=discord.ButtonStyle.primary, emoji="⬅️") 
     async def return_to_main(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(content = "", view = MainMenu()) 
+
+async def error_message(interaction: discord.Interaction):
+    await interaction.response.send_message("Please save a command first.", ephemeral = True)
 
 async def cmd_menu_callback(interaction : discord.Interaction):
     action = interaction.data["values"][0]
