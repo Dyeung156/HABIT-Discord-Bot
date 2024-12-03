@@ -32,11 +32,42 @@ async def save_user_command(user_id, command_name, command_output):
     # filter by user id
     filter = {"user_id": user_id}  
     
-    # Define the update operation
-    update = {"$set": {f"commands.{command_name}": command_output}  }
+    # Find the user's current command list
+    user_data = await user_commands_collection.find_one(filter)
+    
+    # Check if the command already exists in the user's document
+    if user_data and command_name in user_data.get("commands", {}):
+        # If the command already exists, do nothing (ignore it)
+        return
+    
+    # Define the update operation so that it only inserts if command doesn't exist 
+    update = {
+        "$set": {
+            f"commands.{command_name}": {
+                "command_output": command_output,
+                "occurrences": 0
+            }
+        }
+    }
     
     # Update the document
     user_commands_collection.update_one(filter, update, upsert=True)  # upsert=True will create the document if it doesn't exist
+
+#increment a command by 1
+#parameters: user_id (int) -the user's Discord ID
+#            command_name (str) - name of the command 
+#no output
+async def increment_occurance(user_id, command_name):
+    # Filter by user_id
+    filter = {"user_id": user_id}
+    
+    # Define the update operation to increment occurrences
+    update = {
+        "$inc": {f"commands.{command_name}.occurrences": 1}
+    }
+    
+    # Update the document
+    result = await user_commands_collection.update_one(filter, update)
 
 #retrieves a command from a user's personal collection
 #parameters: user_id (int) -the user's Discord ID
@@ -47,7 +78,8 @@ async def get_user_command(user_id, command_name):
     user_data = await user_commands_collection.find_one({"user_id": user_id})
     # Check if user data exists and the command exists in the 'commands' dictionary
     if user_data and command_name in user_data.get("commands", {}):
-        return user_data["commands"][command_name]
+        await increment_occurance(user_id, command_name)
+        return user_data["commands"][command_name]["command_output"]
     else:
         return None  # Return None if the command doesn't exist or the user is not found
 
@@ -58,7 +90,10 @@ async def get_all_user_commands(user_id):
     user_data = await user_commands_collection.find_one({"user_id": user_id})  
     
     if user_data:
-        return [key for key in user_data["commands"]]
+        commands = [(key, value["occurrences"]) for key, value in user_data["commands"].items()]
+        commands = sorted(commands, key = lambda x : x[1], reverse = True)
+        return [name for name , num in commands]
+        
     else:
         return []
 
@@ -159,6 +194,7 @@ class CmdMenu(discord.ui.View):
                 discord.SelectOption(label=label, value=label)
                 for label in cmd_selections
             ]
+            
         
         select = discord.ui.Select(
             placeholder = "Command Menu" if usage == "get" else "Delete Command",
@@ -251,20 +287,20 @@ async def getCmd(interaction : discord.Interaction, cmd_name : str):
         phrase = await get_user_command(interaction.user.id, cmd_name)
         if phrase is None:
             phrase = f"Command {cmd_name} not found"
-        await interaction.response.send_message(phrase, ephemeral = True)
+        await interaction.response.send_message(phrase)
         
     except discord.errors.InteractionResponded:
         # Prevent additional response attempts if already responded
         print("Interaction has already been responded to.")
         
-@client.tree.command(name = "get_all_cmd", description = "Retrieves all commands for the user and outputs it", guild = GUILD_NUM)
-async def getAllCmd(interaction : discord.Interaction):
-    phrase = await get_all_user_commands(interaction.user.id)
+# @client.tree.command(name = "get_all_cmd", description = "Retrieves all commands for the user and outputs it", guild = GUILD_NUM)
+# async def getAllCmd(interaction : discord.Interaction):
+#     phrase = await get_all_user_commands(interaction.user.id)
     
-    if phrase == None:
-        phrase = f"Commands not found"
+#     if phrase == None:
+#         phrase = f"Commands not found"
 
-    await interaction.response.send_message(phrase)
+#     await interaction.response.send_message(phrase)
 
 @client.tree.command(name = "delete_cmd", description = "Deletes a command for the user", guild = GUILD_NUM)
 async def deleteACmd(interaction: discord.Interaction, cmd_name : str):
