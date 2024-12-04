@@ -10,6 +10,10 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import discord
 from discord.ext import commands
 
+#for message history 
+from datetime import datetime
+import string
+
 #get the token from env file
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -293,18 +297,48 @@ async def getCmd(interaction : discord.Interaction, cmd_name : str):
         # Prevent additional response attempts if already responded
         print("Interaction has already been responded to.")
         
-# @client.tree.command(name = "get_all_cmd", description = "Retrieves all commands for the user and outputs it", guild = GUILD_NUM)
-# async def getAllCmd(interaction : discord.Interaction):
-#     phrase = await get_all_user_commands(interaction.user.id)
-    
-#     if phrase == None:
-#         phrase = f"Commands not found"
-
-#     await interaction.response.send_message(phrase)
-
 @client.tree.command(name = "delete_cmd", description = "Deletes a command for the user", guild = GUILD_NUM)
 async def deleteACmd(interaction: discord.Interaction, cmd_name : str):
     result = await delete_command(interaction.user.id, cmd_name)
     await interaction.response.send_message(f"Command {cmd_name} deleted: {result}", ephemeral = True)
+
+@client.tree.command(name = "search_history_phrases", description = "Look at the top (count) messages you repeated the most after a certain date", guild = GUILD_NUM)
+async def searchHistory(interaction : discord.Interaction, count: int, date : str = None):
+    try:
+        # Parse the 'after' date if provided
+        after_date = datetime.strptime(date, "%Y-%m-%d") if date else None
+    except ValueError:
+        await interaction.response.send_message("Invalid date format. Please use YYYY-MM-DD.", ephemeral=True)
+        return
+    
+    user = interaction.user
+    # Create the dictionary to hold messages
+    message_dict = dict()
+    
+    num_msg = 0
+    # Fetch all messages in the channel after date and organize by first letter
+    async for message in interaction.channel.history(limit=None, after=after_date):  
+        if message.author == user:
+            
+            if message in message_dict:
+                message_dict[message.content] += 1
+            else:
+                message_dict[message.content] = 1
+                
+            num_msg += 1
+            #hard limit to avoid too much sorting
+            if num_msg == 1000: 
+                break
+    
+    # sort the dict and then get the top items with the highest values
+    messages = sorted(message_dict.items(), key=lambda item: item[1], reverse=True)[:count]
+    
+    if messages:
+        response = "\n".join([f"Used {msg[1]} times: {msg[0]}" for msg in messages])
+        add_on = f" after {date}" if date else ""
+        await interaction.response.send_message(f"Last {count} messages from {user.mention}{add_on}:\n{response}")
+    else:
+         await interaction.response.send_message("User has not sent any messages.", ephemeral = True)
+    
 
 client.run(TOKEN)
