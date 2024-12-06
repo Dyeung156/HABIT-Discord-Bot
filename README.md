@@ -12,4 +12,5 @@ HABIT is a Discord bot that I am working on that gives user a convient way to st
 
 ## Tech Stack 
 -Backend: Python 
+
 -Database: MongoDB
