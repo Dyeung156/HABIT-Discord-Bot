@@ -51,7 +51,7 @@ async def save_user_command(user_id, command_name, command_output):
 #parameters: user_id (int) -the user's Discord ID
 #            command_name (str) - name of the command 
 #no output
-async def increment_occurance(user_id, command_name):
+async def increment_occurence(user_id, command_name):
     # Filter by user_id
     filter = {"user_id": user_id}
     
@@ -72,7 +72,7 @@ async def get_user_command(user_id, command_name):
     user_data = await user_commands_collection.find_one({"user_id": user_id})
     # Check if user data exists and the command exists in the 'commands' dictionary
     if user_data and command_name in user_data.get("commands", {}):
-        await increment_occurance(user_id, command_name)
+        await increment_occurence(user_id, command_name)
         return user_data["commands"][command_name]["command_output"]
     else:
         return None  # Return None if the command doesn't exist or the user is not found
