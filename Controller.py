@@ -3,9 +3,9 @@ import os
 from dotenv import load_dotenv
 
 #import Database functions 
-from Database_functions import save_user_command, get_user_command, get_all_user_commands, delete_command
-#import Views 
-import Views
+from Model import save_user_command, get_user_command, get_all_user_commands, delete_command
+#import View
+import View
 
 #main discord libraries needed
 import discord
@@ -39,19 +39,19 @@ async def on_ready():
 
 @client.tree.command(name = "main_menu", description = "Calls the main menu", guild = GUILD_NUM)
 async def send_main_menu(interaction: discord.Interaction):
-    await interaction.response.send_message("", view = Views.MainMenu())  # Send a message with the View
+    await interaction.response.send_message("", view = View.MainMenu())  # Send a message with the View
 
 @client.tree.command(name = "cmd_menu", description = "Calls the menu for user commands", guild = GUILD_NUM)
 async def send_cmd_menu(interaction: discord.Interaction):
     cmd_selections = await get_all_user_commands(interaction.user.id)
     
-    await interaction.response.send_message("", view = Views.CmdMenu(cmd_selections, "get"))  # Send a message with the View
+    await interaction.response.send_message("", view = View.CmdMenu(cmd_selections, "get"))  # Send a message with the View
 
 @client.tree.command(name = "delete_menu", description = "Calls the menu to delete a command", guild = GUILD_NUM)
 async def send_cmd_menu(interaction: discord.Interaction):
     cmd_selections = await get_all_user_commands(interaction.user.id)
     
-    await interaction.response.send_message("", view = Views.CmdMenu(cmd_selections, "delete"))  # Send a message with the View
+    await interaction.response.send_message("", view = View.CmdMenu(cmd_selections, "delete"))  # Send a message with the View
 
 @client.tree.command(name = "save_cmd", description = "Saves a text command for the user", guild = GUILD_NUM)
 async def saveCmd(interaction : discord.Interaction, cmd_name : str, text_output : str):
@@ -85,7 +85,7 @@ async def searchHistory(interaction : discord.Interaction, count: int, date : st
         return
     
     user = interaction.user
-    messages = await Views.find_top_messages(interaction, user, count, after_date)
+    messages = await View.find_top_messages(interaction, user, count, after_date)
     print(messages)
     if messages:
         response = "\n".join([f"Used {msg[1]} times: {msg[0]}" for msg in messages])
