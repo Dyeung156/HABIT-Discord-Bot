@@ -1,5 +1,5 @@
 import discord
-from Database_functions import save_user_command, get_user_command, get_all_user_commands, delete_command
+from Model import save_user_command, get_user_command, get_all_user_commands, delete_command
 
 class MainMenu(discord.ui.View): 
     @discord.ui.select( 
