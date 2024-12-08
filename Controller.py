@@ -44,13 +44,11 @@ async def send_main_menu(interaction: discord.Interaction):
 @client.tree.command(name = "cmd_menu", description = "Calls the menu for user commands", guild = GUILD_NUM)
 async def send_cmd_menu(interaction: discord.Interaction):
     cmd_selections = await get_all_user_commands(interaction.user.id)
-    
     await interaction.response.send_message("", view = View.CmdMenu(cmd_selections, "get"))  # Send a message with the View
 
 @client.tree.command(name = "delete_menu", description = "Calls the menu to delete a command", guild = GUILD_NUM)
 async def send_cmd_menu(interaction: discord.Interaction):
     cmd_selections = await get_all_user_commands(interaction.user.id)
-    
     await interaction.response.send_message("", view = View.CmdMenu(cmd_selections, "delete"))  # Send a message with the View
 
 @client.tree.command(name = "save_cmd", description = "Saves a text command for the user", guild = GUILD_NUM)

@@ -97,49 +97,49 @@ class CmdMenu(discord.ui.View):
         
         #attach proper callback
         if len(cmd_selections) == 0:
-            select.callback = error_message
+            select.callback = self.error_message
         elif usage == "get":
-            select.callback = cmd_menu_callback
+            select.callback = self.cmd_menu_callback
         elif usage == "delete":
-            select.callback = delete_menu_callback
+            select.callback = self.delete_menu_callback
             
         self.add_item(select)
+        
+    async def error_message(self, interaction: discord.Interaction):
+        await interaction.response.send_message("Please save a command first.", ephemeral = True)
         
     @discord.ui.button(label="", row = 1, style=discord.ButtonStyle.primary, emoji="⬅️") 
     async def return_to_main(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(content = "", view = MainMenu()) 
 
-async def error_message(interaction: discord.Interaction):
-    await interaction.response.send_message("Please save a command first.", ephemeral = True)
+    async def cmd_menu_callback(self, interaction : discord.Interaction):
+        action = interaction.data["values"][0]
 
-async def cmd_menu_callback(interaction : discord.Interaction):
-    action = interaction.data["values"][0]
+        # await interaction.response.send_message(f"Executing {action}", ephemeral = True)
+        
+        # Handle the action, e.g., execute a specific command
+        phrase = await get_user_command(interaction.user.id, action)
+        if phrase is None:
+            phrase = f"Command {action} not found"
+        await interaction.response.send_message(phrase)
+        
+        #using the slash command's callback will get 2 responses to the same interaction
+        #will need to see if this can be fixed. Copy-pasting otherwise for now
+        
+        # if await getCmd.callback(interaction, action):
+        #     print(f"Executed {action}")
+        # else:
+        #     print(f"Failed to execute {action}")
 
-    # await interaction.response.send_message(f"Executing {action}", ephemeral = True)
-    
-    # Handle the action, e.g., execute a specific command
-    phrase = await get_user_command(interaction.user.id, action)
-    if phrase is None:
-        phrase = f"Command {action} not found"
-    await interaction.response.send_message(phrase)
-    
-    #using the slash command's callback will get 2 responses to the same interaction
-    #will need to see if this can be fixed. Copy-pasting otherwise for now
-    
-    # if await getCmd.callback(interaction, action):
-    #     print(f"Executed {action}")
-    # else:
-    #     print(f"Failed to execute {action}")
+    async def delete_menu_callback(self, interaction : discord.Interaction):
+        cmd_name = interaction.data["values"][0]
 
-async def delete_menu_callback(interaction : discord.Interaction):
-    cmd_name = interaction.data["values"][0]
-
-    # await interaction.response.send_message(f"Executing {action}", ephemeral = True)
-    
-    # delete the command and record the result
-    result = await delete_command(interaction.user.id, cmd_name)
-    #send feedback to the user
-    await interaction.response.send_message(f"Command {cmd_name} deleted: {result}", ephemeral = True)
+        # await interaction.response.send_message(f"Executing {action}", ephemeral = True)
+        
+        # delete the command and record the result
+        result = await delete_command(interaction.user.id, cmd_name)
+        #send feedback to the user
+        await interaction.response.send_message(f"Command {cmd_name} deleted: {result}", ephemeral = True)
 
 class HistoryMenu(discord.ui.View):
     def __init__(self, message_history):
@@ -163,9 +163,9 @@ class HistoryMenu(discord.ui.View):
         
         #attach proper callback
         if len(message_history) == 0:
-            select.callback = history_error
+            select.callback = self.history_error
         else:
-            select.callback = history_selection
+            select.callback = self.history_selection
         
         self.add_item(select)
         
@@ -173,12 +173,12 @@ class HistoryMenu(discord.ui.View):
     async def return_to_main(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(content = "", view = MainMenu()) 
 
-async def history_error(interaction : discord.Interaction):
-    await interaction.response.send_message("Please discuss in the channel more for longer message history", ephemeral = True)
+    async def history_error(self, interaction : discord.Interaction):
+        await interaction.response.send_message("Please discuss in the channel more for longer message history", ephemeral = True)
 
-async def history_selection(interaction: discord.Interaction):
-    cmd_name = interaction.data["values"][0]
-    await interaction.response.send_modal(ModalForCmd(cmd_name))
+    async def history_selection(self, interaction: discord.Interaction):
+        cmd_name = interaction.data["values"][0]
+        await interaction.response.send_modal(ModalForCmd(cmd_name))
 
 #finds the top messages that a user has sent in the channel
 #parameters: interaction (discord.interaction) - the discord interaction the user made
